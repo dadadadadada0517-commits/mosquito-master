@@ -114,18 +114,19 @@ const TYPES = {
 const TOTAL = 16;
 let state = 'loading', G = null, last = 0, T = 0;
 function newGame() {
+  ZONE = MODE === 'hard' ? [306, 372] : [250, 394];
   const r = rng((Date.now() & 0xffff) + 3), keys = Object.keys(TYPES), list = [];
-  for (let i = 0; i < TOTAL; i++) list.push({ type: keys[Math.floor(r() * keys.length)], hidden: i > 1 && r() < .35 });
-  G = { t: 0, scroll: 0, speed: 36, spawnI: 0, nextSpawn: .5, items: [], queue: list, score: 0, combo: 0, best: 0, mosq: 0, good: 0, bad: 0, missed: 0,
+  for (let i = 0; i < TOTAL; i++) list.push({ type: keys[Math.floor(r() * keys.length)], hidden: i > 1 && r() < (MODE === 'hard' ? .45 : .25) });
+  G = { t: 0, scroll: 0, speed: MODE === 'hard' ? 46 : 34, spawnI: 0, nextSpawn: .5, items: [], queue: list, score: 0, combo: 0, best: 0, mosq: 0, good: 0, bad: 0, missed: 0,
     fx: [], tip: null, act: null, shake: 0, flash: 0, end: 0 };
   state = 'play';
 }
-const ZONE = [300, 388], MANX = 404;
+let ZONE = [258, 392], MODE = 'normal'; const MANX = 410;
 function zoneItem() { let best = null; for (const it of G.items) if (!it.done && it.x > ZONE[0] && it.x < ZONE[1]) { if (!best || it.x > best.x) best = it; } return best; }
 function say(text, col = CR, dur = 2.2) { G.tip = { text, col, t: G.t, dur }; }
 function addMosq(n) { G.mosq = Math.min(10, G.mosq + n); G.shake = .25; if (G.mosq >= 10) { G.end = G.t; state = 'lose'; SFX.lose(); bgm.pause(); } }
 function press(i) {
-  if (state === 'title') return start();
+  if (state === 'title') return;
   if (state === 'win' || state === 'lose') { if (G.t - G.end > 1) start(); return; }
   if (state !== 'play') return;
   const a = ACTS[i], it = zoneItem(); G.act = { k: a.k, t: G.t }; SFX.tap();
@@ -204,25 +205,31 @@ function txt(s, x, y, { size = 40, col = CR, w = 900, align = 'center', stroke =
   g.textAlign = align; g.textBaseline = 'middle'; if (stroke) { g.lineJoin = 'round'; g.strokeStyle = stroke; g.lineWidth = slw; g.strokeText(s, 0, 0); } g.fillStyle = col; g.fillText(s, 0, 0); g.restore(); }
 function pbox(x, y, w, h, { fill = 'rgba(8,12,13,.93)', stroke = CR, lw = 4 } = {}) { g.fillStyle = fill; g.fillRect(x + lw, y + lw, w - 2 * lw, h - 2 * lw); g.fillStyle = stroke;
   g.fillRect(x + lw, y, w - 2 * lw, lw); g.fillRect(x + lw, y + h - lw, w - 2 * lw, lw); g.fillRect(x, y + lw, lw, h - 2 * lw); g.fillRect(x + w - lw, y + lw, lw, h - 2 * lw); }
+const MODEBTN = [{ m: 'normal', x: 330, y: 700, w: 340, h: 130, col: GREEN, label: '一般模式', sub: '框框大・速度慢' }, { m: 'hard', x: 710, y: 700, w: 340, h: 130, col: RED, label: '困難模式', sub: '框框小・速度快' }];
 const BTN_Y = 990, BTN_R = 80, btnX = i => 1150 + i * 210;
 function drawButtons() {
-  ACTS.forEach((a, i) => { const x = btnX(i), pressed = G && G.act && G.act.k === a.k && G.t - G.act.t < .15, sc = pressed ? .9 : 1;
+  const zit = G && state === 'play' ? zoneItem() : null, want = zit ? (zit.hidden && !zit.revealed ? '巡' : TYPES[zit.type].act) : null;
+  ACTS.forEach((a, i) => { if (want === a.k) { g.save(); g.globalAlpha = .45 + .35 * Math.sin(T * 10); g.fillStyle = a.col; g.beginPath(); g.arc(btnX(i), BTN_Y, BTN_R + 22, 0, 7); g.fill(); g.restore(); }
+    const x = btnX(i), pressed = G && G.act && G.act.k === a.k && G.t - G.act.t < .15, sc = pressed ? .9 : 1;
     g.save(); g.translate(x, BTN_Y); g.scale(sc, sc); g.fillStyle = 'rgba(0,0,0,.5)'; g.beginPath(); g.arc(6, 10, BTN_R, 0, 7); g.fill();
     g.fillStyle = a.col; g.beginPath(); g.arc(0, 0, BTN_R, 0, 7); g.fill(); g.fillStyle = '#0a0d0e'; g.beginPath(); g.arc(0, 0, BTN_R - 14, 0, 7); g.fill();
     txt(a.k, 0, -8, { size: 84, col: a.col }); txt(a.sub, 0, 46, { size: 24, col: '#c9d2cb', w: 700 }); g.restore(); });
 }
 function drawHUD() {
   pbox(24, 22, W - 48, 96, { stroke: GREEN });
-  txt('第 3 關　巡倒清刷', 56, 70, { size: 40, col: GREEN, align: 'left' });
+  txt('第 3 關　巡倒清刷' + (MODE === 'hard' ? '（困難）' : '（一般）'), 56, 70, { size: 36, col: MODE === 'hard' ? RED : GREEN, align: 'left' });
   txt('分數 ' + G.score, W - 56, 52, { size: 38, col: CR, align: 'right' });
-  txt('蚊子', 520, 70, { size: 34, col: RED, align: 'left' });
-  for (let i = 0; i < 10; i++) { const x = 610 + i * 52, on = i < G.mosq; g.fillStyle = on ? RED : '#22302e'; g.fillRect(x, 50, 40, 40); if (on) txt('🦟', x + 20, 71, { size: 28, w: 400 }); }
+  txt('蚊子', 580, 70, { size: 34, col: RED, align: 'left' });
+  for (let i = 0; i < 10; i++) { const x = 670 + i * 52, on = i < G.mosq; g.fillStyle = on ? RED : '#22302e'; g.fillRect(x, 50, 40, 40); if (on) txt('🦟', x + 20, 71, { size: 28, w: 400 }); }
   const left = TOTAL - G.good - G.missed; txt('剩 ' + Math.max(0, left) + ' 個容器', W - 56, 94, { size: 28, col: '#b9c4bc', align: 'right', w: 700 });
   if (G.combo >= 2) txt('連擊 ×' + G.combo, W / 2, 190, { size: 52, col: GOLD, stroke: '#3a2a00', slw: 10, scale: 1 + .1 * Math.max(0, 1 - (G.t - (G.act ? G.act.t : 0)) * 4) });
   // 出招區提示
   const it = zoneItem(); const zx = (ZONE[0] + ZONE[1]) / 2 * S; g.save(); g.globalAlpha = .35 + .2 * Math.sin(T * 6); g.strokeStyle = it ? GOLD : '#4a5a56'; g.lineWidth = 6; g.setLineDash([18, 12]);
-  g.strokeRect(ZONE[0] * S, (GY - 60) * S, (ZONE[1] - ZONE[0]) * S, 66 * S); g.restore();
-  if (it) { const label = it.hidden && !it.revealed ? '？？？' : TYPES[it.type].name; txt(label, zx, (GY - 70) * S, { size: 40, col: GOLD, stroke: '#000', slw: 8 }); }
+  g.strokeRect(ZONE[0] * S, (GY - 78) * S, (ZONE[1] - ZONE[0]) * S, 86 * S); g.restore();
+  if (it) { const hid = it.hidden && !it.revealed, a = ACTS.find(x => x.k === (hid ? '巡' : TYPES[it.type].act)), label = (hid ? '看不清楚' : TYPES[it.type].name) + ' → 按「' + a.k + '」！';
+    const bw = 560, bx = clamp(zx - bw / 2, 20, W - bw - 20), by = (GY - 78) * S - 150, pul = 1 + .05 * Math.sin(T * 10);
+    g.save(); g.translate(bx + bw / 2, by + 50); g.scale(pul, pul); pbox(-bw / 2, -50, bw, 100, { stroke: a.col, fill: 'rgba(8,12,13,.95)', lw: 6 }); txt(label, 0, 2, { size: 50, col: a.col, maxW: bw - 40 }); g.restore();
+    g.fillStyle = a.col; g.beginPath(); g.moveTo(zx - 22, by + 100); g.lineTo(zx + 22, by + 100); g.lineTo(zx, by + 128); g.fill(); }
   // 提示框
   if (G.tip && G.t - G.tip.t < G.tip.dur) { const a = clamp((G.t - G.tip.t) / .15) * (1 - clamp((G.t - G.tip.t - G.tip.dur + .3) / .3)); g.save(); g.globalAlpha = a;
     pbox(30, 930, 1010, 120, { stroke: G.tip.col }); txt(G.tip.text, 535, 990, { size: 44, col: G.tip.col, maxW: 960 }); g.restore(); }
@@ -240,12 +247,13 @@ function drawTitle() {
   pbox(190, 470, 660, 100, { stroke: GOLD }); txt('第 3 關　巡・倒・清・刷', 520, 522, { size: 54, col: GOLD });
   const rules = [['容器走進虛線框，按對的招式！', CR], ['水桶、臉盆 → 倒', CYAN], ['廢輪胎、空罐 → 清', GOLD], ['花盆底盤、花瓶 → 刷', PINK], ['黑黑的「？」→ 先按 巡', GREEN], ['按錯或漏掉，蚊子會變多', RED], ['蚊子滿 10 隻就失敗！', RED]];
   pbox(1000, 150, 860, 620, { stroke: CR }); rules.forEach(([r, col], i) => txt(r, 1430, 220 + i * 80, { size: 44, col, w: 800 }));
-  if (Math.floor(T * 2) % 2) txt('點一下開始', 520, 700, { size: 70, col: CR });
-  txt('電腦：Q W E R 或 1 2 3 4', 520, 790, { size: 30, col: '#8f9a90', w: 600 });
+  MODEBTN.forEach(b => { const pul = 1 + .04 * Math.sin(T * 5 + b.x); g.save(); g.translate(b.x, b.y); g.scale(pul, pul); pbox(-b.w / 2, -b.h / 2, b.w, b.h, { stroke: b.col, fill: 'rgba(8,12,13,.95)', lw: 6 });
+    txt(b.label, 0, -16, { size: 56, col: b.col }); txt(b.sub, 0, 36, { size: 26, col: '#b9c4bc', w: 700 }); g.restore(); });
+  txt('點選模式開始　電腦：1 一般／2 困難，遊戲中 Q W E R', 520, 830, { size: 26, col: '#8f9a90', w: 600 });
 }
 function drawEnd() {
   const win = state === 'win', p = clamp((G.t - G.end) / .6); g.fillStyle = `rgba(4,7,8,${.85 * p})`; g.fillRect(0, 0, W, H); if (p < .3) return;
-  txt(win ? '過關！' : '蚊子大爆發…', 520, 260, { size: 130, col: win ? GOLD : RED, stroke: '#000', slw: 14, scale: eBack(clamp((G.t - G.end - .2) / .4)) });
+  txt(MODE === 'hard' ? '困難模式' : '一般模式', 520, 140, { size: 40, col: MODE === 'hard' ? RED : GREEN }); txt(win ? '過關！' : '蚊子大爆發…', 520, 260, { size: 130, col: win ? GOLD : RED, stroke: '#000', slw: 14, scale: eBack(clamp((G.t - G.end - .2) / .4)) });
   const acc = G.good + G.bad ? Math.round(G.good / (G.good + G.bad + G.missed) * 100) : 0, stars = !win ? 0 : G.mosq <= 2 ? 3 : G.mosq <= 5 ? 2 : 1;
   for (let i = 0; i < 3; i++) { const sp = eBack(clamp((G.t - G.end - .6 - i * .25) / .3)); txt(i < stars ? '★' : '☆', 520 + (i - 1) * 180, 470, { size: 160, col: i < stars ? GOLD : '#3a4a46', scale: sp }); }
   pbox(1000, 120, 820, 520, { stroke: CR });
@@ -259,7 +267,7 @@ function drawEnd() {
 // ---------- 主迴圈 ----------
 function update(dt) {
   if (state !== 'play') { if (G) G.t += dt; return; }
-  G.t += dt; G.speed = 36 + Math.min(24, G.t * .5); G.scroll += G.speed * dt;
+  G.t += dt; G.speed = MODE === 'hard' ? 46 + Math.min(30, G.t * .7) : 34 + Math.min(18, G.t * .4); G.scroll += G.speed * dt;
   G.nextSpawn -= dt;
   if (G.nextSpawn <= 0 && G.spawnI < TOTAL) { const q = G.queue[G.spawnI]; G.items.push({ id: G.spawnI, type: q.type, hidden: q.hidden, x: -24, done: null }); G.spawnI++; G.nextSpawn = Math.max(1.4, 2.4 - G.t * .03); }
   G.items.forEach(it => { it.x += G.speed * dt;
@@ -292,13 +300,13 @@ function render() {
 }
 function frame(ts) { const dt = Math.min(.05, (ts - (last || ts)) / 1000); last = ts; T += dt; update(dt); render(); requestAnimationFrame(frame); }
 
-function start() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume();
+function start(m) { if (m) MODE = m; if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume();
   try { bgm.volume = .35; bgm.currentTime = 0; bgm.play().catch(() => {}); } catch (e) {} newGame(); }
 c.addEventListener('pointerdown', e => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
-  if (state === 'title') return start();
+  if (state === 'title') { for (const b of MODEBTN) if (Math.abs(x - b.x) < b.w / 2 + 10 && Math.abs(y - b.y) < b.h / 2 + 10) return start(b.m); return; }
   for (let i = 0; i < 4; i++) if (Math.hypot(x - btnX(i), y - BTN_Y) < BTN_R + 20) return press(i);
   if (state === 'win' || state === 'lose') press(0); });
-window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (state === 'title' && (k === ' ' || k === 'enter')) return start(); ACTS.forEach((a, i) => { if (a.key.includes(k)) press(i); }); });
+window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (state === 'title') { if (k === '1' || k === 'enter' || k === ' ') start('normal'); else if (k === '2') start('hard'); return; } ACTS.forEach((a, i) => { if (a.key.includes(k)) press(i); }); });
 
 // 測試用：在主控台可手動推進遊戲
 window.__dbg = { step: (dt = 1 / 30, n = 1) => { for (let i = 0; i < n; i++) { T += dt; update(dt); } render(); },
