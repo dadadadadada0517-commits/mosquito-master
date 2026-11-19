@@ -241,7 +241,10 @@ function introSteps() {
     [[BEAM_BTN.x - BEAM_BTN.w / 2 - 20, BEAM_BTN.y - BEAM_BTN.h / 2 - 20, BEAM_BTN.w + 40, BEAM_BTN.h + 40], '光球集滿 → 按「合體光束」，貨車發射光束！', 'beam'],
     [[SPRAY_BTN.x - SPRAY_BTN.r - 20, SPRAY_BTN.y - SPRAY_BTN.r - 20, SPRAY_BTN.r * 2 + 40, SPRAY_BTN.r * 2 + 40], '魔王衝過來前出現警告 → 按「噴藥」擋住！']];
 }
-function introNext() { G.istep++; G.istepT = G.t; SFX.tap(); if (G.istep >= introSteps().length) { G.intro = G.t; G.nextSpawn = .6; if (kind() === 'boss') G.nextAtk = MODE === 'hard' ? 6 : 8; say('開始！', GOLD, 1.2); } }
+function introNext() { G.istep++; G.istepT = G.t; SFX.tap(); if (G.istep >= introSteps().length) { G.intro = G.t; G.nextSpawn = .2; if (kind() === 'boss') G.nextAtk = MODE === 'hard' ? 6 : 8; else prefill(); say('開始！', GOLD, 1.2); } }
+function prefill() { const k = kind(), gap = k === 'quiz' ? 128 : 80; let x = ZONE[0] - 45;
+  while (x > -30 && G.spawnI < G.total) { const q = G.queue[G.spawnI]; G.items.unshift(k === 'quiz' ? { id: G.spawnI, q, x, done: null } : { id: G.spawnI, type: q.type, hidden: q.hidden, x, done: null }); G.spawnI++; x -= gap; }
+  G.nextSpawn = (x + 30 + gap) / G.speed; }
 
 // ---------- 繪製：世界 ----------
 function drawWorld() {
@@ -502,11 +505,12 @@ function frame(ts) { const dt = Math.min(.05, (ts - (last || ts)) / 1000); last 
 function audioOn() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
   if (AC && !MASTER) { MASTER = AC.createGain(); MASTER.gain.value = 2.4; const comp = AC.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 6; MASTER.connect(comp).connect(AC.destination); }
   if (AC && AC.state === 'suspended') AC.resume(); }
-function start(i, m) { if (i !== undefined) LVI = i; if (m) MODE = m; audioOn(); try { bgm.volume = .2; bgm.currentTime = 0; bgm.play().catch(() => {}); } catch (e) {} newGame(); }
+function playBgm(restart) { try { bgm.volume = .5; bgm.loop = true; if (restart) { try { bgm.currentTime = 0; } catch (e) {} } const p = bgm.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+function start(i, m) { if (i !== undefined) LVI = i; if (m) MODE = m; audioOn(); playBgm(true); newGame(); }
 function goHome() { state = 'title'; G = null; SFX.tap(); }
 function endAction(id) { if (id === 'next') start(LVI + 1); else if (id === 'retry') start(LVI); else goHome(); }
 function tryLevel(i) { if (!unlocked(i)) { SFX.bad(); return; } start(i); }
-c.addEventListener('pointerdown', e => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H; audioOn();
+c.addEventListener('pointerdown', e => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H; audioOn(); if (bgm.paused && state !== 'lose') playBgm(false);
   if (state === 'title') { for (const b of MODE_BTN) if (hit(b, x, y)) { MODE = b.m; SFX.tap(); return; }
     if (hit(CLEAR_BTN, x, y)) { if (T - clearArm < 3) { SAVE = { stars: {} }; persist(); clearArm = -9; SFX.bad(); } else { clearArm = T; SFX.tap(); } return; }
     LEVELS.forEach((L, i) => { if (hit(CARD(i), x, y)) tryLevel(i); }); return; }
@@ -518,7 +522,7 @@ c.addEventListener('pointerdown', e => { const r = c.getBoundingClientRect(), x 
   if (k === 'boss') { if (hit(SPRAY_BTN, x, y, 14)) return spray(); if (orbsFull() && hit(BEAM_BTN, x, y, 20)) return fireBeam(); }
   if (k === 'quiz') { for (let i = 0; i < 2; i++) if (hit(QBTN[i], x, y, 14)) return answer(i); return; }
   for (let i = 0; i < 4; i++) if (Math.hypot(x - btnX(i), y - BTN_Y) < BTN_R + 20) return press(i); });
-window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); audioOn();
+window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); audioOn(); if (bgm.paused && state !== 'lose') playBgm(false);
   if (state === 'title') { if (k === 'm') { MODE = MODE === 'hard' ? 'normal' : 'hard'; SFX.tap(); return; } const n = +k; if (n >= 1 && n <= 6) tryLevel(n - 1); return; }
   if (state === 'win' || state === 'lose') { if (G.t - G.end < .9) return; if ((k === 'n' || k === 'enter') && state === 'win') endAction(LVI < LEVELS.length - 1 ? 'next' : 'home'); else if (k === 'r') endAction('retry'); else if (k === 'escape' || k === 'h') endAction('home'); return; }
   if (state !== 'play') return; if (k === 'escape') return goHome();
