@@ -207,7 +207,7 @@ function bossPos() { let x = 130 + 40 * Math.sin(G.t * .7), y = 96 + 10 * Math.s
   if (G.dead) y += (G.t - G.dead) * 12; return [x, y]; }
 const orbsFull = () => !!(G && G.orbs && ['巡', '倒', '清', '刷'].every(k => G.orbs[k] >= 2));
 const warning = () => !!(G && G.atk && !G.atk.blocked && G.t - G.atk.t < ATK_HIT);
-const atkFreeze = () => !!(G && G.atk && kind() === 'boss');
+const atkFreeze = () => false; // 魔王衝撞時路面照常前進
 function hurtMan(n, msg) { if (G.dead) return; G.hp = Math.max(0, G.hp - n); G.hurtT = G.t; G.shake = .3; if (msg) say(msg, RED); if (G.hp <= 0 && state === 'play') finish(false); }
 function fireBeam() { if (!(kind() === 'boss' && state === 'play' && orbsFull() && !G.beam && !G.dead)) return; G.beam = { t: G.t }; G.orbs = { 巡: 0, 倒: 0, 清: 0, 刷: 0 }; G.beams++; SFX.charge(); setTimeout(SFX.beam, 450); say('防治要點合體！滅蚊高手號，發射！', GOLD, 2.2); }
 function spray() {
