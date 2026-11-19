@@ -475,7 +475,8 @@ function update(dt) {
       else { addMosq(2); say('漏掉' + (it.hidden && !it.revealed ? '一個積水容器' : TYPES[it.type].name) + '！孑孓變成蚊子了…', RED); } }
     if (it.x > LW + 70) it.gone = true; });
   G.items = G.items.filter(it => !it.gone);
-  if (k !== 'boss' && state === 'play' && G.spawnI >= G.total && G.items.length === 0) finish(true);
+  if (k !== 'boss' && state === 'play' && G.spawnI >= G.total && G.items.every(it => it.done || it.missed)) { // 最後一個處理完 1 秒後結束
+    if (G.allDoneT == null) G.allDoneT = G.t; if (G.t - G.allDoneT >= 1) finish(true); } else if (G) G.allDoneT = null;
   G.shake = Math.max(0, G.shake - dt);
 }
 function render() {
