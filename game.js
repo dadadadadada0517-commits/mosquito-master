@@ -418,7 +418,7 @@ function drawIntro() {
 // ---------- 主畫面：關卡地圖 ----------
 const CARD = i => ({ x: 420 + (i % 3) * 540, y: 470 + Math.floor(i / 3) * 290, w: 500, h: 250 });
 const MODE_BTN = [{ m: 'normal', x: 800, y: 250, w: 280, h: 80 }, { m: 'hard', x: 1120, y: 250, w: 280, h: 80 }], CLEAR_BTN = { x: W - 170, y: H - 50, w: 280, h: 60 };
-const unlocked = i => i === 0 || cleared(LEVELS[i - 1].id);
+const unlocked = i => true; // 全部關卡開放
 function drawTitle() {
   g.fillStyle = 'rgba(4,7,8,.8)'; g.fillRect(0, 0, W, H);
   txt('滅蚊達人', W / 2, 120, { size: 140, col: RED, stroke: CR, slw: 12, scale: eBack(clamp(T / .5)) });
