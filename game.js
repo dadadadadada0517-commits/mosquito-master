@@ -148,7 +148,7 @@ function newGame() {
     fx: [], tip: null, act: null, shake: 0, end: 0, intro: 999, istep: 0, istepT: 0, saved: false, stars: 0 };
   const k = kind();
   if (k === 'l3') { const r = rng((Date.now() & 0xffff) + 3), keys = Object.keys(TYPES); for (let i = 0; i < L3_TOTAL; i++) G.queue.push({ type: keys[Math.floor(r() * keys.length)], hidden: i > 1 && r() < (MODE === 'hard' ? .45 : .25) }); G.total = L3_TOTAL; }
-  if (k === 'quiz') { G.queue = shuffle(lv().q.slice()).slice(0, 10); G.total = G.queue.length; G.speed = MODE === 'hard' ? 40 : 30; }
+  if (k === 'quiz') { G.queue = shuffle(lv().q.slice()).slice(0, 10); G.total = G.queue.length; G.speed = MODE === 'hard' ? 50 : 44; if (MODE === 'hard') ZONE = [270, 380]; }
   if (k === 'boss') Object.assign(G, { hp: 100, bossHP: 100, orbs: { 巡: 0, 倒: 0, 清: 0, 刷: 0 }, bag: [], nextAtk: 999, atk: null, beam: null, beams: 0, sprayT: -9, hurtT: -9, dead: null, speed: MODE === 'hard' ? 40 : 30 });
   state = 'play';
 }
