@@ -207,21 +207,22 @@ function bossPos() { let x = 130 + 40 * Math.sin(G.t * .7), y = 96 + 10 * Math.s
   if (G.dead) y += (G.t - G.dead) * 12; return [x, y]; }
 const orbsFull = () => !!(G && G.orbs && ['巡', '倒', '清', '刷'].every(k => G.orbs[k] >= 2));
 const warning = () => !!(G && G.atk && !G.atk.blocked && G.t - G.atk.t < ATK_HIT);
+const atkFreeze = () => !!(G && G.atk && kind() === 'boss');
 function hurtMan(n, msg) { if (G.dead) return; G.hp = Math.max(0, G.hp - n); G.hurtT = G.t; G.shake = .3; if (msg) say(msg, RED); if (G.hp <= 0 && state === 'play') finish(false); }
 function fireBeam() { if (!(kind() === 'boss' && state === 'play' && orbsFull() && !G.beam && !G.dead)) return; G.beam = { t: G.t }; G.orbs = { 巡: 0, 倒: 0, 清: 0, 刷: 0 }; G.beams++; SFX.charge(); setTimeout(SFX.beam, 450); say('防治要點合體！滅蚊高手號，發射！', GOLD, 2.2); }
 function spray() {
-  if (!(kind() === 'boss' && state === 'play') || G.dead || G.t - G.sprayT < .5) return; if (G.t < G.intro) { introNext(); return; }
+  if (!(kind() === 'boss' && state === 'play') || G.dead || (G.t - G.sprayT < .5 && !warning())) return; if (G.t < G.intro) { introNext(); return; }
   G.sprayT = G.t; SFX.spray();
-  if (warning()) { G.atk.blocked = true; G.atk.blockT = G.t - G.atk.t; SFX.block(); popText('擋住了！', bossPos()[0], GREEN); say('擋住了！噴藥可以暫時擋住魔王，但打不倒它', GREEN, 2.4); return; }
+  if (warning()) { G.atk.blocked = true; G.atk.blockedEver = true; G.atk.blockT = G.t - G.atk.t; SFX.block(); popText('擋住了！', bossPos()[0], GREEN); say('擋住了！噴藥可以暫時擋住魔王，但打不倒它', GREEN, 2.4); return; }
   G.bossHP = Math.max(1, G.bossHP - 1); popText('-1', bossPos()[0], '#b9c4bc'); say('噴藥只能擋一下！要等魔王衝過來時再噴', '#d4dccf', 2);
 }
 function bossUpdate(dt) {
   if (G.dead) { if (G.t - G.dead > 2.4 && state === 'play') finish(true); return; }
-  if (G.nextSpawn <= 0) { const q = bossNext(), [bx, by] = bossPos(); G.items.push({ id: G.spawnI++, type: q.type, hidden: q.hidden, x: bx - 10 + Math.random() * 20, fall: 0, fy: by + 20, done: null }); G.nextSpawn = MODE === 'hard' ? 1.6 : 2.2; SFX.toss(); }
+  if (G.nextSpawn <= 0 && !atkFreeze()) { const q = bossNext(), [bx, by] = bossPos(); G.items.push({ id: G.spawnI++, type: q.type, hidden: q.hidden, x: bx - 10 + Math.random() * 20, fall: 0, fy: by + 20, done: null }); G.nextSpawn = MODE === 'hard' ? 1.6 : 2.2; SFX.toss(); }
   G.items.forEach(it => { if (it.fall !== undefined && it.fall < 1) it.fall = Math.min(1, it.fall + dt / .6); });
   G.nextAtk -= dt; if (G.nextAtk <= 0 && !G.atk && !G.beam) { G.atk = { t: G.t, hit: false, blocked: false }; SFX.alarm(); }
   if (G.atk) { const p = G.t - G.atk.t;
-    if (!G.atk.blocked && p > ATK_HIT && !G.atk.hit) { G.atk.hit = true; SFX.hit(); hurtMan(MODE === 'hard' ? 8 : 5, '被魔王撞到了！下次看到警告就按「噴藥」！'); }
+    if (!G.atk.blocked && p > ATK_HIT && !G.atk.hit && !G.atk.blockedEver) { G.atk.hit = true; SFX.hit(); hurtMan(MODE === 'hard' ? 8 : 5, '被魔王撞到了！下次看到警告就按「噴藥」！'); }
     if (p > ATK_END + (G.atk.blocked ? .2 : 0)) { G.atk = null; G.nextAtk = MODE === 'hard' ? 5 : 7; } }
   if (G.beam) { const p = G.t - G.beam.t; if (p > .9 && !G.beam.hit) { G.beam.hit = true; G.bossHP = Math.max(0, G.bossHP - BEAM_DMG()); G.shake = .6; SFX.boom(); if (G.bossHP <= 0) { G.dead = G.t; G.items.forEach(it => it.done = it.done || '清'); say('登革熱 退散！', GOLD, 3); } } if (p > 1.8) G.beam = null; }
 }
@@ -460,13 +461,13 @@ function update(dt) {
   if (!G || state !== 'play') { if (G) G.t += dt; return; }
   G.t += dt; if (G.t < G.intro && G.t - G.istepT > 2.6) introNext();
   const k = kind(); if (k === 'l3') G.speed = MODE === 'hard' ? 46 + Math.min(30, G.t * .7) : 34 + Math.min(18, G.t * .4);
-  if (G.t >= G.intro) G.scroll += G.speed * dt;
+  if (G.t >= G.intro && !atkFreeze()) G.scroll += G.speed * dt;
   G.nextSpawn -= dt;
   if (k === 'boss') bossUpdate(dt);
   else if (G.nextSpawn <= 0 && G.spawnI < G.total) { const q = G.queue[G.spawnI];
     G.items.push(k === 'quiz' ? { id: G.spawnI, q, x: -40, done: null } : { id: G.spawnI, type: q.type, hidden: q.hidden, x: -24, done: null }); G.spawnI++;
     G.nextSpawn = k === 'quiz' ? 128 / G.speed : Math.max(1.4, 2.4 - G.t * .03); }
-  if (G.t >= G.intro) G.items.forEach(it => { it.x += G.speed * dt;
+  if (G.t >= G.intro) G.items.forEach(it => { if (!atkFreeze()) it.x += G.speed * dt;
     if (!it.done && !it.zoneT && it.x > ZONE[0]) it.zoneT = G.t;
     if (!it.done && !it.missed && it.x > ZONE[1] + 2) { it.missed = true; G.missed++; G.combo = 0; SFX.miss();
       if (k === 'boss') { G.bossHP = Math.min(100, G.bossHP + 4); hurtMan(10, '漏掉了！魔王吸收積水變強了！'); }
